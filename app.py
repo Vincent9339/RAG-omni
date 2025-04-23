@@ -1,4 +1,5 @@
 import os
+from transformers import pipeline, AutoTokenizer
 import socket
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -12,10 +13,11 @@ CONFIG = {
     "pdf_path": "document.pdf",
     "static_folder": "static",
     "generation_config": {
-        "max_length": 200,
+        "max_new_tokens": 150,  # Changed from max_length
         "do_sample": False,
         "truncation": True,
-        "pad_token_id": 50256  # GPT2's eos_token_id
+        "pad_token_id": 50256,
+        "temperature": 0.7
     }
 }
 
@@ -28,6 +30,8 @@ def initialize_components():
     try:
         print("🔄 Initializing RAG pipeline...")
         
+        
+        
         # 1. Load and chunk document
         loader = PDFLoader(CONFIG["pdf_path"])
         text = loader.load()
@@ -39,11 +43,12 @@ def initialize_components():
         print(f"📄 Loaded {len(chunks)} text chunks from PDF")
         
         # 2. Initialize embeddings
+        tokenizer = AutoTokenizer.from_pretrained("gpt2")
         embedder = EmbeddingGenerator()
         embeddings = embedder.generate(chunks)
         
         # 3. Setup vector store
-        vector_store = VectorStore()
+        vector_store = VectorStore(tokenizer=tokenizer)  # Pass the tokenizer
         vector_store.store(embeddings, chunks)
         
         # 4. Initialize LLM with proper config
