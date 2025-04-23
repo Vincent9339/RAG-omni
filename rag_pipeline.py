@@ -21,7 +21,7 @@ class PDFLoader:
             raise RuntimeError(f"Failed to load PDF: {str(e)}")
 
 class TextChunker:
-    def __init__(self, chunk_size=500, overlap=50):
+    def __init__(self, chunk_size=350, overlap=100):
         self.chunk_size = chunk_size
         self.overlap = overlap
 
@@ -47,52 +47,105 @@ class EmbeddingGenerator:
 class RAGPipeline:
     def __init__(self, model_name="gpt2", generation_config=None):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.tokenizer.pad_token = self.tokenizer.eos_token  # Fix padding warning
+        self.tokenizer.pad_token = self.tokenizer.eos_token
+        
+        # Default generation config optimized for RAG
+        self.generation_config = {
+            "max_new_tokens": 100,       # Only generate up to 150 new tokens
+            "do_sample": False,          # Disabled sampling for deterministic answers
+            "truncation": "only_first",  # Only truncate the context, not the question
+            "pad_token_id": self.tokenizer.eos_token_id,
+            "no_repeat_ngram_size": 2,    # Prevent word repetition
+            "repetition_penalty": 1.5 
+        }
+        
+        if generation_config:
+            self.generation_config.update(generation_config)
+        
+        # Remove temperature if not sampling
+        if not self.generation_config.get("do_sample", False):
+            self.generation_config.pop("temperature", None)
         
         self.generator = pipeline(
             "text-generation",
             model=model_name,
             tokenizer=self.tokenizer,
-            device=-1  # Use CPU (-1), change to 0 for GPU if available
+            device=-1
         )
-        
-        self.generation_config = generation_config or {
-            #"max_length": 150,
-            "max_new_tokens":100,
-            "do_sample": False,
-            "truncation": True,
-            "pad_token_id": self.tokenizer.eos_token_id
-        }
+        self.max_model_length = 1024  # GPT-2's limit
 
     def generate_response(self, query, context):
-        prompt = f"Context: {context}\n\nQuestion: {query}\n\nAnswer:"
-        
-        # Generate with fixed config
-        outputs = self.generator(
-            prompt,
-            **self.generation_config
+        # 1. Create prompt with smart truncation
+        #prompt = self._build_prompt(query, context)
+        prompt = (
+            "Answer the question based on the context below. "
+            "If you don't know the answer, say 'I don't know'.\n\n"
+            f"Context: {context}\n\n"
+            f"Question: {query}\n"
+            "Answer:"
         )
         
-        # Extract and clean response
-        full_text = outputs[0]['generated_text']
-        answer = full_text.replace(prompt, "").strip()
-        return answer.split("\n")[0]  # Return first line only
+        try:
+            # 2. Generate response
+            outputs = self.generator(
+                prompt,
+                **self.generation_config
+            )
+            full_response = outputs[0]['generated_text']
+            answer = full_response.split("Answer:")[1].strip()
+            #return full_text.replace(prompt, "").strip().split("\n")[0]
+            if answer.lower().startswith(("the question is", "the word", "what does")):
+                return "I don't know"  # Fallback for bad generations
+            return answer
+        except Exception as e:
+            print(f"⚠️ Generation error: {str(e)}")
+            return "I couldn't generate a response. Please try a more specific question."
+
+    def _build_prompt(self, query, context):
+        """Builds a prompt that fits within model limits"""
+        base_prompt = f"\n\nQuestion: {query}\n\nAnswer:"
+        max_context_length = self.max_model_length - len(self.tokenizer.tokenize(base_prompt))
+        
+        # Tokenize context and truncate if needed
+        context_tokens = self.tokenizer.tokenize(context)
+        if len(context_tokens) > max_context_length:
+            print(f"⚠️ Truncating context from {len(context_tokens)} to {max_context_length} tokens")
+            context_tokens = context_tokens[:max_context_length]
+        
+        truncated_context = self.tokenizer.convert_tokens_to_string(context_tokens)
+        return f"Context: {truncated_context}{base_prompt}"
 
 class VectorStore:
-    def __init__(self):
+    def __init__(self, tokenizer=None):
         self.embeddings = None
         self.texts = None
         self.nn = NearestNeighbors(n_neighbors=3, metric='cosine')
+        self.tokenizer = tokenizer  # Store the tokenizer reference
 
     def store(self, embeddings, texts):
         self.embeddings = np.array(embeddings)
         self.texts = texts
         self.nn.fit(self.embeddings)
 
-    def search(self, query_embedding):
+    def search(self, query_embedding, max_tokens=500):
         distances, indices = self.nn.kneighbors([query_embedding])
-        return [self.texts[i] for i in indices[0]]
-
+        
+        if not self.tokenizer:
+            return [self.texts[i] for i in indices[0][:3]]  # Fallback without token counting
+            
+        selected_chunks = []
+        current_length = 0
+        
+        for i in indices[0]:
+            chunk = self.texts[i]
+            chunk_length = len(self.tokenizer.tokenize(chunk))
+            if current_length + chunk_length > max_tokens:
+                break
+            selected_chunks.append(chunk)
+            current_length += chunk_length
+        
+        return selected_chunks
+        
 def main():
     try:
         #pdf_path = "/visa_rel/pdfs/Visa Code Handbook II_2020_EN.pdf"
