@@ -1,55 +1,33 @@
-/**
- * RAG Chatbot Application
- * 
- * This script handles:
- * - Sending/receiving messages
- * - Chat history management
- * - UI interactions
- * - Theme management
- */
-
-// Configuration
 const serverPort = window.location.port || 5000;
 const apiUrl = `http://${window.location.hostname}:${serverPort}/api/ask`;
 let isWaitingForResponse = false;
 
-// DOM Elements
 const chatbox = document.getElementById('chatbox');
 const userInput = document.getElementById('userInput');
 const sendButton = document.getElementById('sendButton');
 const settingsMenu = document.getElementById('settingsMenu');
 
-// Initialize the chat when DOM is loaded
 document.addEventListener('DOMContentLoaded', initChat);
 
-/**
- * Initializes the chat interface
- */
 function initChat() {
   loadConversation();
   userInput.focus();
   
-  // Event listeners
   userInput.addEventListener('keypress', handleInputKeypress);
   document.addEventListener('click', handleOutsideClick);
 }
 
-/**
- * Handles sending a question to the chatbot
- */
 async function sendQuestion() {
   if (isWaitingForResponse) return;
   
   const question = userInput.value.trim();
   if (!question) return;
 
-  // Display user message
   appendMessage('user', question);
   userInput.value = '';
   isWaitingForResponse = true;
   sendButton.disabled = true;
   
-  // Show loading indicator
   const loadingMsg = appendMessage('bot', createLoadingDots());
   
   try {
@@ -63,7 +41,6 @@ async function sendQuestion() {
     
     const data = await response.json();
     
-    // Handle response
     if (data.error) {
       showErrorMessage(loadingMsg, data.error);
     } else {
@@ -79,24 +56,14 @@ async function sendQuestion() {
   }
 }
 
-/**
- * Creates loading dots animation HTML
- */
 function createLoadingDots() {
   return '<div class="loading-dots"><span></span><span></span><span></span></div>';
 }
 
-/**
- * Appends a message to the chat
- * @param {string} sender - 'user' or 'bot'
- * @param {string} text - Message content
- * @returns {HTMLElement} The created message element
- */
 function appendMessage(sender, text) {
   const msgWrapper = document.createElement('div');
   msgWrapper.className = `message ${sender}`;
 
-  // Create avatar
   const avatar = document.createElement('img');
   avatar.className = 'avatar';
   avatar.alt = `${sender} avatar`;
@@ -104,7 +71,6 @@ function appendMessage(sender, text) {
     ? 'https://api.iconify.design/mdi/account.svg'
     : 'https://api.iconify.design/fluent-emoji-flat/robot.svg';
 
-  // Create message bubble
   const msg = document.createElement('div');
   msg.className = `${sender}-msg`;
   if (typeof text === 'string' && text.startsWith('<')) {
@@ -113,7 +79,6 @@ function appendMessage(sender, text) {
     msg.textContent = text;
   }
 
-  // Arrange elements based on sender
   if (sender === 'user') {
     msgWrapper.appendChild(msg);
     msgWrapper.appendChild(avatar);
@@ -127,54 +92,34 @@ function appendMessage(sender, text) {
   return msgWrapper;
 }
 
-/**
- * Formats answer text with simple markdown
- * @param {string} text - Raw text to format
- * @returns {string} Formatted HTML
- */
 function formatAnswer(text) {
   return text
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // Bold
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')              // Italic
-    .replace(/`(.*?)`/g, '<code>$1</code>')           // Code
-    .replace(/\n/g, '<br>');                          // Line breaks
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')              
+    .replace(/`(.*?)`/g, '<code>$1</code>')           
+    .replace(/\n/g, '<br>');                          
 }
 
-/**
- * Displays a bot message, replacing loading indicator
- */
 function showBotMessage(loadingMsg, answer) {
   loadingMsg.querySelector('.bot-msg').innerHTML = formatAnswer(answer);
 }
 
-/**
- * Displays an error message
- */
 function showErrorMessage(loadingMsg, error) {
   const msgElement = loadingMsg.querySelector('.bot-msg');
   msgElement.innerHTML = `❗ ${formatAnswer(error)}`;
   msgElement.style.backgroundColor = 'var(--error)';
 }
 
-/**
- * Toggles dark mode
- */
 function toggleDarkMode() {
   document.body.classList.toggle('dark');
   localStorage.setItem('darkMode', document.body.classList.contains('dark'));
   toggleSettings();
 }
 
-/**
- * Toggles settings menu visibility
- */
 function toggleSettings() {
   settingsMenu.style.display = settingsMenu.style.display === 'flex' ? 'none' : 'flex';
 }
 
-/**
- * Clears chat history
- */
 function clearHistory() {
   if (confirm('Are you sure you want to clear all chat history?')) {
     localStorage.removeItem('chatHistory');
@@ -183,9 +128,6 @@ function clearHistory() {
   }
 }
 
-/**
- * Exports chat to a text file
- */
 function exportChat() {
   const messages = Array.from(document.querySelectorAll('.message')).map(msg => 
     `${msg.classList.contains('user') ? 'You' : 'Bot'}: ${msg.querySelector('.user-msg, .bot-msg').textContent}`
@@ -203,9 +145,6 @@ function exportChat() {
   toggleSettings();
 }
 
-/**
- * Saves conversation to localStorage
- */
 function saveConversation() {
   const messages = Array.from(document.querySelectorAll('.message')).map(msg => ({
     sender: msg.classList.contains('user') ? 'user' : 'bot',
@@ -215,32 +154,24 @@ function saveConversation() {
   localStorage.setItem('chatHistory', JSON.stringify(messages));
 }
 
-/**
- * Loads conversation from localStorage
- */
 function loadConversation() {
-  // Load theme preference
+
   if (localStorage.getItem('darkMode') === 'true') {
     document.body.classList.add('dark');
   }
   
-  // Load chat history
   const history = JSON.parse(localStorage.getItem('chatHistory'));
   if (history) {
     history.forEach(msg => appendMessage(msg.sender, msg.text));
   }
 }
 
-/**
- * Handles Enter key in input field
- */
+
 function handleInputKeypress(e) {
   if (e.key === 'Enter' && !isWaitingForResponse) sendQuestion();
 }
 
-/**
- * Closes settings when clicking outside
- */
+
 function handleOutsideClick(e) {
   const settingsIcon = document.querySelector('.settings-icon');
   if (settingsMenu && settingsIcon && 
@@ -250,19 +181,16 @@ function handleOutsideClick(e) {
   }
 }
 
-// Add this at the top with other DOM elements
+
 const sidebar = document.getElementById('sidebar');
 const historyList = document.getElementById('historyList');
 const overlay = document.createElement('div');
 overlay.className = 'overlay';
 document.body.appendChild(overlay);
 
-// Add this to your initChat function
+
 overlay.addEventListener('click', toggleSidebar);
 
-/**
- * Toggles the sidebar visibility
- */
 function toggleSidebar() {
   sidebar.classList.toggle('active');
   overlay.classList.toggle('active');
@@ -272,25 +200,19 @@ function toggleSidebar() {
   }
 }
 
-/**
- * Loads the chat history into the sidebar
- */
 function loadHistoryList() {
   const history = JSON.parse(localStorage.getItem('chatHistory')) || [];
   
-  // Group conversations by date
   const groupedHistory = groupConversationsByDate(history);
   
   historyList.innerHTML = '';
   
-  // Create date sections
   for (const [date, conversations] of Object.entries(groupedHistory)) {
     const dateHeader = document.createElement('div');
     dateHeader.className = 'history-date-header';
     dateHeader.textContent = date;
     historyList.appendChild(dateHeader);
     
-    // Add each conversation
     conversations.forEach((conversation, index) => {
       const historyItem = document.createElement('div');
       historyItem.className = 'history-item';
@@ -309,12 +231,8 @@ function loadHistoryList() {
   }
 }
 
-/**
- * Groups conversations by date
- */
 function groupConversationsByDate(history) {
-  // First, we need to restructure how we save history to group messages by conversation
-  // This assumes you'll update your saveConversation function (shown below)
+
   const conversations = [];
   let currentConversation = [];
   
@@ -330,7 +248,6 @@ function groupConversationsByDate(history) {
     conversations.push(currentConversation);
   }
   
-  // Group by date
   const grouped = {};
   
   conversations.forEach(conversation => {
@@ -348,9 +265,6 @@ function groupConversationsByDate(history) {
   return grouped;
 }
 
-/**
- * Loads a specific conversation from history
- */
 function loadConversationFromHistory(conversation) {
   chatbox.innerHTML = '';
   conversation.messages.forEach(msg => {
@@ -358,9 +272,6 @@ function loadConversationFromHistory(conversation) {
   });
 }
 
-/**
- * Updated save function to better organize conversations
- */
 function saveConversation() {
   const messages = Array.from(document.querySelectorAll('.message')).map(msg => ({
     sender: msg.classList.contains('user') ? 'user' : 'bot',
@@ -368,10 +279,8 @@ function saveConversation() {
     timestamp: new Date().toISOString()
   }));
   
-  // Get existing history or initialize
   const existingHistory = JSON.parse(localStorage.getItem('chatHistory')) || [];
   
-  // Add new messages
   const updatedHistory = [...existingHistory, ...messages];
   localStorage.setItem('chatHistory', JSON.stringify(updatedHistory));
 }
