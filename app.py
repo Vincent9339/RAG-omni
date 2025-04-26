@@ -1,11 +1,10 @@
-import os
+import os, socket
 from transformers import pipeline, AutoTokenizer
 import socket
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from rag_pipeline import PDFLoader, TextChunker, EmbeddingGenerator, VectorStore, RAGPipeline
 
-# Configuration
 CONFIG = {
     "host": "0.0.0.0",
     "start_port": 5000,
@@ -21,18 +20,13 @@ CONFIG = {
     }
 }
 
-# Initialize Flask app
 app = Flask(__name__, static_folder=CONFIG["static_folder"])
 CORS(app)
 
-# Initialize RAG components with enhanced error handling
 def initialize_components():
     try:
-        print("🔄 Initializing RAG pipeline...")
+        print("Initializing RAG pipeline...")
         
-        
-        
-        # 1. Load and chunk document
         loader = PDFLoader(CONFIG["pdf_path"])
         text = loader.load()
         if not text.strip():
@@ -40,20 +34,17 @@ def initialize_components():
             
         chunker = TextChunker()
         chunks = chunker.chunk(text)
-        print(f"📄 Loaded {len(chunks)} text chunks from PDF")
+        print(f"Loaded {len(chunks)} text chunks from PDF")
         
-        # 2. Initialize embeddings
         tokenizer = AutoTokenizer.from_pretrained("gpt2")
         embedder = EmbeddingGenerator()
         embeddings = embedder.generate(chunks)
-        
-        # 3. Setup vector store
-        vector_store = VectorStore(tokenizer=tokenizer)  # Pass the tokenizer
+
+        vector_store = VectorStore(tokenizer=tokenizer)  
         vector_store.store(embeddings, chunks)
-        
-        # 4. Initialize LLM with proper config
+
         rag = RAGPipeline(generation_config=CONFIG["generation_config"])
-        print("✅ RAG pipeline initialized successfully")
+        print("RAG pipeline initialized successfully")
         
         return {
             "vector_store": vector_store,
@@ -64,7 +55,7 @@ def initialize_components():
         }
         
     except Exception as e:
-        print(f"❌ Failed to initialize RAG pipeline: {str(e)}")
+        print(f"Failed to initialize RAG pipeline: {str(e)}")
         return {
             "status": "error",
             "message": str(e)
@@ -72,7 +63,6 @@ def initialize_components():
 
 components = initialize_components()
 
-# API Endpoints
 @app.route('/api/ask', methods=['POST'])
 def handle_query():
     if components["status"] != "ready":
@@ -89,14 +79,11 @@ def handle_query():
         question = data['question']
         print(f"🔍 Processing question: '{question}'")
         
-        # Generate query embedding
         query_embedding = components["embedder"].generate([question])[0]
         
-        # Find relevant context
         relevant_chunks = components["vector_store"].search(query_embedding)
         context = "\n".join(relevant_chunks)
         
-        # Generate response with proper error handling
         try:
             response = components["rag"].generate_response(question, context)
             return jsonify({
@@ -104,20 +91,19 @@ def handle_query():
                 "context": relevant_chunks
             })
         except Exception as e:
-            print(f"🤖 Generation error: {str(e)}")
+            print(f"Generation error: {str(e)}")
             return jsonify({
                 "error": "Answer generation failed",
                 "details": str(e)
             }), 500
             
     except Exception as e:
-        print(f"⚠️ API error: {str(e)}")
+        print(f"API error: {str(e)}")
         return jsonify({
             "error": "Processing failed",
             "details": str(e)
         }), 500
 
-# Static file serving
 @app.route('/')
 def serve_index():
     return send_from_directory(CONFIG["static_folder"], 'index.html')
@@ -126,7 +112,6 @@ def serve_index():
 def static_files(filename):
     return send_from_directory(CONFIG["static_folder"], filename)
 
-# Server utilities
 def find_available_port():
     for port in range(CONFIG["start_port"], CONFIG["start_port"] + CONFIG["max_port_attempts"]):
         try:
@@ -139,7 +124,7 @@ def find_available_port():
 
 if __name__ == '__main__':
     port = find_available_port()
-    print(f"\n🚀 Server running on http://{CONFIG['host']}:{port}")
-    print(f"📂 Serving static files from {os.path.abspath(CONFIG['static_folder'])}")
-    print(f"📄 Using PDF document: {os.path.abspath(CONFIG['pdf_path'])}")
+    print(f"\nServer running on http://{CONFIG['host']}:{port}")
+    print(f"Serving static files from {os.path.abspath(CONFIG['static_folder'])}")
+    print(f"Using PDF document: {os.path.abspath(CONFIG['pdf_path'])}")
     app.run(host=CONFIG["host"], port=port, debug=False)  # debug=False for production
