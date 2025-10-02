@@ -5,11 +5,11 @@ RAG-Omni is an end-to-end Retrieval-Augmented Generation (RAG) system designed t
 
 Instead of relying solely on a language model’s limited internal knowledge, this project combines:
 
-1 **Document ingestion**: a PDF is parsed into clean text.
-2 **Chunking**: the text is split into smaller segments for efficient search.
-3 **Semantic embeddings**: each chunk is embedded into a numerical vector space.
-4 **Vector search**: at query time, the system finds the most relevant chunks.
-5 **LLM generation**: the retrieved context is injected into a language model (GPT by default) to generate a context-aware answer.
+1. **Document ingestion**: a PDF is parsed into clean text.
+2. **Chunking**: the text is split into smaller segments for efficient search.
+3. **Semantic embeddings**: each chunk is embedded into a numerical vector space.
+4. **Vector search**: at query time, the system finds the most relevant chunks.
+5. **LLM generation**: the retrieved context is injected into a language model (GPT by default) to generate a context-aware answer.
 
 The result is a lightweight, extensible RAG pipeline that can answer natural language questions directly from the contents of your documents. It exposes a Flask API for easy integration with frontends, enterprise workflows, or other applications.
 
