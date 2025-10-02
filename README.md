@@ -20,7 +20,7 @@ This project serves both as a reference implementation of a custom RAG system an
 - **End-to-end RAG pipeline**: from raw document ingestion to question answering, all components are integrated and ready to run.
 - **PDF knowledge base**: load any PDF and automatically preprocess it into retrievable text segments.
 - **Semantic retrieval**: query embeddings and vector similarity search ensure responses are grounded in the most relevant parts of the document.
-- **LLM-backed generation**: answers are produced by a Hugging Face language model (default: GPT-2), conditioned on retrieved context.
+- **LLM-backed generation**: answers are produced by a Hugging Face language model (default: GPT), conditioned on retrieved context.
 - **Modular design**: each component (loader, chunker, embeddings, vector store, generator) is implemented as an independent class, making it easy to replace or extend.
 - **API-first architecture**: exposes a clean Flask REST API (/api/ask) for integration with web frontends or external systems.
 - **Configurable generation**: parameters such as token limits, temperature, and sampling strategy can be tuned via app.py.
